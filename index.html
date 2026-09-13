@@ -69,6 +69,7 @@
           <button class="warn" onclick="pauseAgent()">PAUSE</button>
           <button class="secondary" onclick="stopAgent()">STOP</button>
           <button class="danger" onclick="emergencyStop()">EMERGENCY STOP</button>
+          <button class="secondary" onclick="connectGmail()">CONNECT GMAIL</button>
         </div>
         <label>Daily task limit</label><input id="dailyLimit" type="number" min="1" max="100" value="10" style="max-width:120px" onchange="saveConfig()">
       </div>
@@ -232,7 +233,67 @@ function render(){
 window.addEventListener('beforeunload',()=>{if(timer)clearInterval(timer)});
 render();
 
-</script>
+</script>const GOOGLE_CLIENT_ID =
+  '132639238915-cgna5936vo7kniqqqi0pi3iqapgq9msq.apps.googleusercontent.com';
 
+const GOOGLE_API_KEY = AIzaSyAgSF4xstyezJsa16ceHV4fOJX3GrnpO6w;
+
+const GMAIL_DISCOVERY_DOC =
+  'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest';
+
+const GMAIL_SCOPES =
+  'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send';
+
+let gmailTokenClient;
+let gmailGapiReady = false;
+let gmailGisReady = false;
+
+function gapiLoaded() {
+  gapi.load('client', initializeGmailClient);
+}
+
+async function initializeGmailClient() {
+  await gapi.client.init({
+    apiKey: GOOGLE_API_KEY,
+    discoveryDocs: [GMAIL_DISCOVERY_DOC]
+  });
+
+  gmailGapiReady = true;
+}
+
+function gisLoaded() {
+  gmailTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GMAIL_SCOPES,
+    callback: ''
+  });
+
+  gmailGisReady = true;
+}
+
+function connectGmail() {
+  if (!gmailGapiReady || !gmailGisReady) {
+    alert('Google services are still loading. Try again in a few seconds.');
+    return;
+  }
+
+  gmailTokenClient.callback = (response) => {
+    if (response.error) {
+      console.error(response);
+      alert('Gmail connection failed.');
+      return;
+    }
+
+    alert('Gmail connected successfully.');
+    log('Gmail connected');
+  };
+
+  gmailTokenClient.requestAccessToken({
+    prompt: gapi.client.getToken() ? '' : 'consent'
+  });
+}
+</script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
 </html>
