@@ -233,11 +233,11 @@ function render(){
 window.addEventListener('beforeunload',()=>{if(timer)clearInterval(timer)});
 render();
 
-
+<script> 
   const GOOGLE_CLIENT_ID =
   '132639238915-cgna5936vo7kniqqqi0pi3iqapgq9msq.apps.googleusercontent.com';
 
-const GOOGLE_API_KEY = AIzaSyAgSF4xstyezJsa16ceHV4fOJX3GrnpO6w;
+const GOOGLE_API_KEY = 'AIzaSyAgSF4xstyezJsa16ceHV4fOJX3GrnpO6w';
 
 const GMAIL_DISCOVERY_DOC =
   'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest';
@@ -294,6 +294,7 @@ function connectGmail() {
   });
 }
 </script>
+
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 </body>
