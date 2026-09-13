@@ -256,11 +256,11 @@ function gapiLoaded() {
 
 async function initializeGmailClient() {
   await gapi.client.init({
-    apiKey: GOOGLE_API_KEY,
     discoveryDocs: [GMAIL_DISCOVERY_DOC]
   });
 
   gmailGapiReady = true;
+}
 }
 
 function gisLoaded() {
