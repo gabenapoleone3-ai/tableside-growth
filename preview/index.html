@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#111827">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon192.png">
-  <title>TableSide Growth</title>
+  <title>TableSide Growth Preview</title>
   <style>
     *{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#0b1220;color:#e5e7eb}header{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;background:#111827;border-bottom:1px solid #263244}h1{margin:0;font-size:24px}.sub{color:#94a3b8;font-size:13px}.status{padding:7px 12px;border-radius:999px;background:#1f2937;font-weight:700}.wrap{padding:18px;max-width:1400px;margin:auto}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#111827;border:1px solid #263244;border-radius:12px;padding:14px}.big{font-size:26px;font-weight:700;margin-top:4px}nav{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}button{cursor:pointer;border:0;border-radius:8px;padding:9px 13px;background:#2563eb;color:white;font-weight:600}button.secondary{background:#334155}button.danger{background:#b91c1c}button.warn{background:#b45309}.panel{background:#111827;border:1px solid #263244;border-radius:12px;padding:14px;margin-bottom:14px}input,textarea,select{width:100%;background:#0f172a;color:#e5e7eb;border:1px solid #334155;border-radius:7px;padding:9px}textarea{min-height:110px;resize:vertical}.formgrid{display:grid;grid-template-columns:2fr 1fr 2fr 1.5fr 2fr;gap:8px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #263244;font-size:14px}tr:hover{background:#0f172a}.tabs>section{display:none}.tabs>section.active{display:block}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0}.muted{color:#94a3b8}.log{font-family:Consolas,monospace;white-space:pre-wrap;max-height:420px;overflow:auto}@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
-<header><div><h1>TableSide Growth</h1><div class="sub">Agent Control Center — PWA v1</div></div><div class="status" id="agentStatus">STOPPED</div></header>
+<header><div><h1>TableSide Growth</h1><div class="sub">PREVIEW BUILD — isolated test data</div></div><div class="status" id="agentStatus">STOPPED</div></header>
 <div class="wrap">
   <div class="grid">
     <div class="card"><div class="muted">Prospects</div><div class="big" id="sProspects">0</div></div>
@@ -37,6 +37,20 @@
     <section id="control"><div class="panel"><h3>What this app controls</h3><p><b>Controls:</b> local prospect data, local task queue, local drafts, approval state, client/revenue tracking, and the local agent loop while this app is open.</p><p><b>Email safety:</b> outbound email requires a pending approval and a final confirmation. Sent/rejected approvals cannot be sent again.</p><p><b>Stopping it:</b> press STOP/EMERGENCY STOP or close the app window. The local agent loop stops.</p></div></section>
   </div>
 </div>
+<script>
+(() => {
+  const liveKey = 'tableside_growth_pwa_v1';
+  const previewKey = 'tableside_growth_preview_v1';
+  const originalGetItem = Storage.prototype.getItem;
+  const originalSetItem = Storage.prototype.setItem;
+  Storage.prototype.getItem = function(key) {
+    return originalGetItem.call(this, key === liveKey ? previewKey : key);
+  };
+  Storage.prototype.setItem = function(key, value) {
+    return originalSetItem.call(this, key === liveKey ? previewKey : key, value);
+  };
+})();
+</script>
 <script src="app.js"></script>
 <script src="gmail.js"></script>
 <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
