@@ -281,9 +281,22 @@ function render(){
  sContacted.textContent=state.prospects.filter(x=>x.status==='Contacted').length;
  sInterested.textContent=state.prospects.filter(x=>x.status==='Interested').length;
  sRevenue.textContent='$'+state.revenue.toFixed(2);dailyLimit.value=state.dailyLimit;
- prospectRows.innerHTML=state.prospects.map(p=>`<tr><td>${esc(p.business)}</td><td>${esc(p.city)}</td><td>${esc(p.status)}</td><td>${esc(p.email)}</td><td>
- <button class="secondary" onclick="setStatus(${p.id},'Interested')">Interested</button>
- <button class="secondary" onclick="makeClient(${p.id})">Client</button></td></tr>`).join('');
+prospectRows.innerHTML = state.prospects.map(p => `
+  <tr>
+    <td>${esc(p.business)}</td>
+    <td>${esc(p.city)}</td>
+    <td>${esc(p.status)}</td>
+    <td>${esc(p.email)}</td>
+    <td>
+      <button onclick="selectP(${p.id});makeDraft(${p.id})">Draft</button>
+      <button onclick="queue(${p.id})">Queue</button>
+      <button class="secondary" onclick="setStatus(${p.id},'Contacted')">Contacted</button>
+      <button class="secondary" onclick="setStatus(${p.id},'Interested')">Interested</button>
+      <button class="secondary" onclick="makeClient(${p.id})">Client</button>
+    </td>
+  </tr>
+`).join('');
+
  taskRows.innerHTML=state.tasks.slice().reverse().map(t=>{let p=state.prospects.find(x=>x.id===t.prospectId);return `<tr><td>${esc(p?.business||'Unknown')}</td><td>${esc(t.task)}</td><td>${esc(t.status)}</td></tr>`}).join('');
 approvalRows.innerHTML = state.approvals.map(a => {
   const p = state.prospects.find(x => x.id === a.prospectId);
