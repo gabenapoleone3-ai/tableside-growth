@@ -210,11 +210,27 @@ async function approve(id) {
     return;
   }
 
-  const body = a.payload;
-  if (!body || !body.trim()) {
-    alert('This approval has no email draft.');
-    return;
+ const fullPayload = a.payload;
+
+if (!fullPayload || !fullPayload.trim()) {
+  alert('This approval has no email draft.');
+  return;
+}
+
+const outreachMarker = 'OUTREACH DRAFT';
+const statusMarker = 'STATUS';
+
+let body = fullPayload;
+
+if (fullPayload.includes(outreachMarker)) {
+  body = fullPayload.split(outreachMarker)[1];
+
+  if (body.includes(statusMarker)) {
+    body = body.split(statusMarker)[0];
   }
+
+  body = body.trim();
+}
 
   const subject = `Quick idea for ${p.business}`;
 
