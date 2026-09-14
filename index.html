@@ -70,6 +70,7 @@
           <button class="secondary" onclick="stopAgent()">STOP</button>
           <button class="danger" onclick="emergencyStop()">EMERGENCY STOP</button>
           <button class="secondary" onclick="connectGmail()">CONNECT GMAIL</button>
+          <button class="secondary" onclick="testGmail()">TEST GMAIL</button>
          
         </div>
         <label>Daily task limit</label><input id="dailyLimit" type="number" min="1" max="100" value="10" style="max-width:120px" onchange="saveConfig()">
@@ -272,9 +273,11 @@ function gisLoaded() {
 
   gmailGisReady = true;
 }
-
-function connectGmail() {
   async function testGmail() {
+    
+function connectGmail() {
+  }
+  
   if (!gapi.client.getToken()) {
     alert('Connect Gmail first.');
     return;
@@ -297,6 +300,7 @@ function connectGmail() {
     alert('Gmail test failed. Check the browser console.');
   }
 }
+  function connectGmail() {
   if (!gmailGapiReady || !gmailGisReady) {
     alert('Google services are still loading. Try again in a few seconds.');
     return;
