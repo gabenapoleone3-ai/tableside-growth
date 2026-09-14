@@ -274,6 +274,40 @@ function gisLoaded() {
 
   gmailGisReady = true;
 }
+  async function sendApprovedEmail(to, subject, body) {
+  if (!gapi.client.getToken()) {
+    alert('Connect Gmail first.');
+    return;
+  }
+
+  const message =
+    `To: ${to}\r\n` +
+    `Subject: ${subject}\r\n` +
+    `Content-Type: text/plain; charset="UTF-8"\r\n\r\n` +
+    body;
+
+  const encodedMessage = btoa(
+    unescape(encodeURIComponent(message))
+  )
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  try {
+    await gapi.client.gmail.users.messages.send({
+      userId: 'me',
+      resource: {
+        raw: encodedMessage
+      }
+    });
+
+    alert('Email sent successfully.');
+    log(`Email sent to ${to}`);
+  } catch (error) {
+    console.error(error);
+    alert('Email send failed. Check the browser console.');
+  }
+}
   async function testGmail() {
   async function sendApprovedEmail(to, subject, body) {
   if (!gapi.client.getToken()) {
