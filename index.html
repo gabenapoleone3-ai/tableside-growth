@@ -239,8 +239,19 @@ async function approve(id) {
   save();
   render();
 }
-function reject(id){let a=state.approvals.find(x=>x.id===id);if(a){a.status='Rejected';log('Rejected outbound outreach')}}
-function loadApproval(id){let a=state.approvals.find(x=>x.id===id);if(a){state.selected=a.prospectId;workingDraft.value=a.payload;showTab('drafts');save()}}
+function reject(id) {
+  const a = state.approvals.find(x => x.id === id);
+  if (!a) return;
+
+  if (a.status === 'Rejected') return;
+
+  a.status = 'Rejected';
+  log('Rejected outbound outreach');
+  save();
+  render();
+}
+  
+  function loadApproval(id){let a=state.approvals.find(x=>x.id===id);if(a){state.selected=a.prospectId;workingDraft.value=a.payload;showTab('drafts');save()}}
 async function copyDraft(){try{await navigator.clipboard.writeText(workingDraft.value);log('Copied draft')}catch(e){alert('Copy failed. Select the text and copy manually.')}}
 function openGmail(){
  let p=state.prospects.find(x=>x.id===state.selected);if(!p)return alert('Select a prospect first.');
