@@ -71,6 +71,7 @@
           <button class="danger" onclick="emergencyStop()">EMERGENCY STOP</button>
           <button class="secondary" onclick="connectGmail()">CONNECT GMAIL</button>
           <button class="secondary" onclick="testGmail()">TEST GMAIL</button>
+          <button class="secondary" onclick="sendApprovedEmail('gabenapoleone3@gmail.com','TableSide Growth test','This is a test email from TableSide Growth.')">SEND TEST EMAIL</button>
          
         </div>
         <label>Daily task limit</label><input id="dailyLimit" type="number" min="1" max="100" value="10" style="max-width:120px" onchange="saveConfig()">
@@ -274,7 +275,40 @@ function gisLoaded() {
   gmailGisReady = true;
 }
   async function testGmail() {
-    
+  async function sendApprovedEmail(to, subject, body) {
+  if (!gapi.client.getToken()) {
+    alert('Connect Gmail first.');
+    return;
+  }
+
+  const message =
+    `To: ${to}\r\n` +
+    `Subject: ${subject}\r\n` +
+    `Content-Type: text/plain; charset="UTF-8"\r\n\r\n` +
+    body;
+
+  const encodedMessage = btoa(
+    unescape(encodeURIComponent(message))
+  )
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  try {
+    await gapi.client.gmail.users.messages.send({
+      userId: 'me',
+      resource: {
+        raw: encodedMessage
+      }
+    });
+
+    alert('Email sent successfully.');
+    log(`Email sent to ${to}`);
+  } catch (error) {
+    console.error(error);
+    alert('Email send failed. Check the browser console.');
+  }
+}  
 function connectGmail() {
   }
   
