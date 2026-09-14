@@ -190,7 +190,55 @@ Prepared locally. Human approval required before anything is sent.`;
   save();
  },800)
 }
-function approve(id){let a=state.approvals.find(x=>x.id===id);if(a){a.status='Approved';log('Approved outbound outreach')}}
+async function approve(id) {
+  const a = state.approvals.find(x => x.id === id);
+  if (!a) return;
+
+  const p = state.prospects.find(x => x.id === a.prospectId);
+  if (!p) {
+    alert('Prospect not found.');
+    return;
+  }
+
+  if (!p.email) {
+    alert('This prospect does not have an email address.');
+    return;
+  }
+
+  if (!gapi.client.getToken()) {
+    alert('Connect Gmail first.');
+    return;
+  }
+
+  const body = a.payload;
+  if (!body || !body.trim()) {
+    alert('This approval has no email draft.');
+    return;
+  }
+
+  const subject = `Quick idea for ${p.business}`;
+
+  const confirmed = confirm(
+    `Send this approved email?\n\nTo: ${p.email}\nSubject: ${subject}`
+  );
+
+  if (!confirmed) return;
+
+  const sent = await sendApprovedEmail(
+    p.email,
+    subject,
+    body
+  );
+
+  if (!sent) return;
+
+  a.status = 'Sent';
+  p.status = 'Contacted';
+
+  log(`Approved and sent outreach to ${p.business}`);
+  save();
+  render();
+}
 function reject(id){let a=state.approvals.find(x=>x.id===id);if(a){a.status='Rejected';log('Rejected outbound outreach')}}
 function loadApproval(id){let a=state.approvals.find(x=>x.id===id);if(a){state.selected=a.prospectId;workingDraft.value=a.payload;showTab('drafts');save()}}
 async function copyDraft(){try{await navigator.clipboard.writeText(workingDraft.value);log('Copied draft')}catch(e){alert('Copy failed. Select the text and copy manually.')}}
@@ -229,7 +277,7 @@ function render(){
  <button class="secondary" onclick="setStatus(${p.id},'Interested')">Interested</button>
  <button class="secondary" onclick="makeClient(${p.id})">Client</button></td></tr>`).join('');
  taskRows.innerHTML=state.tasks.slice().reverse().map(t=>{let p=state.prospects.find(x=>x.id===t.prospectId);return `<tr><td>${esc(p?.business||'Unknown')}</td><td>${esc(t.task)}</td><td>${esc(t.status)}</td></tr>`}).join('');
- approvalRows.innerHTML=state.approvals.map(a=>{let p=state.prospects.find(x=>x.id===a.prospectId);return `<tr><td>${esc(p?.business||'Unknown')}</td><td>${esc(a.action)}</td><td>${esc(a.status)}</td><td><button onclick="loadApproval(${a.id})">Load</button><button onclick="approve(${a.id})">Approve</button><button class="secondary" onclick="reject(${a.id})">Reject</button></td></tr>`}).join('');
+ approvalRows.innerHTML=state.approvals.map(a=>{let p=state.prospects.find(x=>x.id===a.prospectId);return `<tr><td>${esc(p?.business||'Unknown')}</td><td>${esc(a.action)}</td><td>${esc(a.status)}</td><td><button onclick="loadApproval(${a.id})">Load</button><button onclick="approve(${a.id})">Approve & Send</button><button class="secondary" onclick="reject(${a.id})">Reject</button></td></tr>`}).join('');
  clientRows.innerHTML=state.clients.map(c=>`<tr><td>${esc(c.business)}</td><td>${esc(c.status)}</td><td>$${c.revenue.toFixed(2)} <button onclick="addRevenue(${c.prospectId})">+ Revenue</button></td></tr>`).join('');
  document.getElementById('log').textContent=state.activity.join('\n');
 }
@@ -303,49 +351,14 @@ function gisLoaded() {
 
     alert('Email sent successfully.');
     log(`Email sent to ${to}`);
+    return true;
   } catch (error) {
     console.error(error);
     alert('Email send failed. Check the browser console.');
+    return false;
   }
 }
   async function testGmail() {
-  async function sendApprovedEmail(to, subject, body) {
-  if (!gapi.client.getToken()) {
-    alert('Connect Gmail first.');
-    return;
-  }
-
-  const message =
-    `To: ${to}\r\n` +
-    `Subject: ${subject}\r\n` +
-    `Content-Type: text/plain; charset="UTF-8"\r\n\r\n` +
-    body;
-
-  const encodedMessage = btoa(
-    unescape(encodeURIComponent(message))
-  )
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-  try {
-    await gapi.client.gmail.users.messages.send({
-      userId: 'me',
-      resource: {
-        raw: encodedMessage
-      }
-    });
-
-    alert('Email sent successfully.');
-    log(`Email sent to ${to}`);
-  } catch (error) {
-    console.error(error);
-    alert('Email send failed. Check the browser console.');
-  }
-}  
-function connectGmail() {
-  }
-  
   if (!gapi.client.getToken()) {
     alert('Connect Gmail first.');
     return;
