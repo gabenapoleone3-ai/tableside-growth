@@ -17,33 +17,68 @@ async function requestAIDraft(prospect) {
   try { data = await response.json(); } catch (_) {}
   if (!response.ok) throw new Error(data.error || `AI request failed (${response.status})`);
   if (!data.body || !data.subject) throw new Error('AI returned an incomplete draft.');
-  return data;
+  return {subject:String(data.subject).trim(), body:String(data.body).trim()};
 }
 
-const localMakeDraft = window.makeDraft;
-window.makeDraft = async function(id) {
-  if (typeof localMakeDraft === 'function') localMakeDraft(id);
+function getAppState() {
+  return JSON.parse(localStorage.getItem('tableside_growth_pwa_v1') || 'null');
+}
 
-  const key = 'tableside_growth_pwa_v1';
-  const saved = JSON.parse(localStorage.getItem(key) || 'null');
+function putAppState(next) {
+  localStorage.setItem('tableside_growth_pwa_v1', JSON.stringify(next));
+}
+
+async function generateAIApproval(id) {
+  const saved = getAppState();
   const prospect = saved?.prospects?.find(p => p.id === id);
   if (!prospect) return alert('Prospect not found.');
 
+  const existing = saved.approvals?.find(a => a.prospectId === id && ['Pending','Sending'].includes(a.status));
+  if (existing) return alert('This prospect already has an approval waiting. Review or reject it before generating another.');
+
   const box = document.getElementById('workingDraft');
-  if (!box) return;
-  const fallback = box.value;
-  box.disabled = true;
-  box.value = 'Generating personalized AI draft…';
+  if (box) {
+    box.disabled = true;
+    box.value = 'Generating personalized AI draft…';
+  }
 
   try {
     const draft = await requestAIDraft(prospect);
-    box.value = draft.body;
-    box.dataset.aiSubject = draft.subject;
+    const latest = getAppState();
+    if (!latest) throw new Error('App state unavailable.');
+    latest.approvals ||= [];
+    latest.activity ||= [];
+    latest.approvals.unshift({
+      id: Date.now(),
+      prospectId: id,
+      action: 'AI-drafted outbound outreach',
+      status: 'Pending',
+      subject: draft.subject,
+      body: draft.body,
+      package: `TABLESIDE GROWTH — AI OUTREACH DRAFT\n\nBusiness: ${prospect.business}\n\nSUBJECT\n${draft.subject}\n\nCUSTOMER-FACING DRAFT\n${draft.body}\n\nAUTHORIZATION\nNot sent. Explicit human approval is required before any communication leaves TableSide Growth.`
+    });
+    latest.selected = id;
+    latest.selectedApproval = latest.approvals[0].id;
+    latest.activity.unshift(`${new Date().toLocaleString()} — AI prepared draft for ${prospect.business} — NOT SENT — awaiting explicit approval`);
+    putAppState(latest);
+    if (box) box.value = draft.body;
+    if (typeof render === 'function') render();
+    if (typeof showTab === 'function') showTab('approvals');
   } catch (error) {
-    box.value = fallback;
     console.error('AI draft generation failed:', error);
-    alert(`AI draft unavailable: ${error.message}\n\nThe local fallback draft has been kept.`);
+    if (box) box.value = '';
+    alert(`AI draft unavailable: ${error.message}\n\nNothing was sent.`);
   } finally {
-    box.disabled = false;
+    if (box) box.disabled = false;
   }
+}
+
+// Drafting is preparation only. This module deliberately has no Gmail send,
+// payment, publishing, or external-communication capability.
+window.generateAIApproval = generateAIApproval;
+
+const localMakeDraft = window.makeDraft;
+window.makeDraft = function(id) {
+  if (typeof localMakeDraft === 'function') localMakeDraft(id);
+  return generateAIApproval(id);
 };
