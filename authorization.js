@@ -1,11 +1,25 @@
 // TableSide Growth authorization boundary.
 // Consequential external actions must originate from a fresh, explicit user approval.
 
+function currentApprovalFingerprint(a, p) {
+  return JSON.stringify({to:String(p?.email || '').trim(), subject:String(a?.subject || '').trim(), body:String(a?.body || '').trim()});
+}
+
+window.markApprovalReviewed = function(id) {
+  const a = state.approvals.find(x => x.id === id);
+  if (!a || a.status !== 'Pending') return false;
+  const p = state.prospects.find(x => x.id === a.prospectId);
+  if (!p) return false;
+  a.reviewedFingerprint = currentApprovalFingerprint(a, p);
+  a.reviewedAt = Date.now();
+  save();
+  return true;
+};
+
 window.approve = async function(id) {
   const a = state.approvals.find(x => x.id === id);
   if (!a) return;
   normalizeApproval(a);
-
   if (a.status !== 'Pending') return alert(`This approval is already ${a.status}.`);
 
   const p = state.prospects.find(x => x.id === a.prospectId);
@@ -16,6 +30,14 @@ window.approve = async function(id) {
   const body = String(a.body || '').trim();
   const subject = String(a.subject || '').trim();
   if (!body || !subject) return alert('This approval is missing a subject or email draft.');
+
+  const exact = currentApprovalFingerprint(a, p);
+  if (a.reviewedFingerprint !== exact) {
+    a.reviewedFingerprint = exact;
+    a.reviewedAt = Date.now();
+    save();
+    return alert('Review checkpoint set for this exact recipient, subject, and message. Press Approve & Send again only after you have reviewed them. Nothing was sent.');
+  }
 
   const confirmed = confirm(
     `FINAL AUTHORIZATION REQUIRED\n\nThis will send exactly one email.\n\nTo: ${p.email}\nSubject: ${subject}\n\nNothing will be sent unless you press OK.`
@@ -31,6 +53,7 @@ window.approve = async function(id) {
   if (!authorizationToken) return alert('Send blocked: authorization could not be created.');
 
   a.status = 'Sending';
+  a.reviewedFingerprint = null;
   save();
   const sent = await sendApprovedEmail(p.email, subject, body, authorizationToken);
 
