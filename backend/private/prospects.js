@@ -41,6 +41,11 @@ export async function listProspects(ownerUserId) {
   return result.rows.map(rowToProspect);
 }
 
+export async function getProspect(ownerUserId, id) {
+  const result = await query(`SELECT * FROM prospects WHERE id=$1 AND owner_user_id=$2 AND archived_at IS NULL LIMIT 1`,[id,ownerUserId]);
+  return result.rowCount ? rowToProspect(result.rows[0]) : null;
+}
+
 export async function createProspect(ownerUserId, input = {}) {
   const businessName = clean(input.businessName, 160);
   if (!businessName) throw new Error('Business name is required');
