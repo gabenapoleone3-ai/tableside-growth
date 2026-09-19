@@ -71,4 +71,22 @@ export async function gmailAccessTokenFor(userId){
   if(!response.ok||!data.access_token)throw new Error(data?.error_description||'Could not refresh Gmail access');
   return data.access_token;
 }
+export async function findGmailReplies(userId,email,maxResults=20){
+  email=clean(email,320);if(!email)throw new Error('Prospect email is missing');
+  const accessToken=await gmailAccessTokenFor(userId),headers={Authorization:`Bearer ${accessToken}`};
+  const listUrl=new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+  listUrl.searchParams.set('q',`from:${email}`);listUrl.searchParams.set('maxResults',String(Math.max(1,Math.min(50,Number(maxResults)||20))));
+  const listed=await fetch(listUrl,{headers}),list=await listed.json().catch(()=>({}));
+  if(!listed.ok)throw new Error('Could not read Gmail replies');
+  const out=[];
+  for(const item of list.messages||[]){
+    const response=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(item.id)}?format=full`,{headers});
+    const m=await response.json().catch(()=>({}));if(!response.ok)continue;
+    const hs=m.payload?.headers||[],h=name=>hs.find(x=>String(x.name).toLowerCase()===name.toLowerCase())?.value||'';
+    const decode=v=>{try{return Buffer.from(String(v||'').replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('utf8');}catch{return '';}};
+    const body=part=>{if(!part)return '';if(part.mimeType==='text/plain'&&part.body?.data)return decode(part.body.data);for(const child of part.parts||[]){const found=body(child);if(found)return found;}return part.body?.data?decode(part.body.data):'';};
+    out.push({providerMessageId:m.id,threadId:m.threadId,from:h('From'),subject:h('Subject'),body:body(m.payload).trim().slice(0,12000),at:new Date(Number(m.internalDate)).toISOString()});
+  }
+  return out;
+}
 export async function disconnectGmail(userId){await query('DELETE FROM gmail_connections WHERE user_id=$1',[userId]);}
