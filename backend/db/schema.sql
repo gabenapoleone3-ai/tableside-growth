@@ -11,6 +11,16 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at timestamptz
 );
 
+CREATE TABLE IF NOT EXISTS private_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS private_sessions_expiry_idx ON private_sessions(expires_at);
+
 CREATE TABLE IF NOT EXISTS prospects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_user_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
