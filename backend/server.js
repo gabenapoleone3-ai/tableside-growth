@@ -5,7 +5,7 @@ import { timeline, recordInbound, createFollowUp, setTaskStatus } from './privat
 import { prepareReplyDraft } from './private/reply-ai.js';
 import { createDraft, authorizeDraft, consumeAuthorization } from './private/authorizations.js';
 import { databaseConfigured } from './db/pool.js';
-import { beginGmailOAuth, finishGmailOAuth, gmailStatus, disconnectGmail } from './private/gmail-oauth.js';
+import { beginGmailOAuth, finishGmailOAuth, gmailStatus, disconnectGmail, findGmailReplies } from './private/gmail-oauth.js';
 
 const PORT=Number(process.env.PORT||3000);const ORIGIN='https://gabenapoleone3-ai.github.io';const AI_TIMEOUT_MS=45000;
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
@@ -30,6 +30,7 @@ const server=http.createServer(async(req,res)=>{const origin=req.headers.origin;
 if(req.method==='POST'&&path==='/api/private/login'){const input=await bodyJson(req);if(!loginAllowed(req,input.email))return json(res,429,{error:'Too many failed login attempts. Try again later.'});const session=await loginOwner(input.email,input.password);if(!session){recordLoginFailure(req,input.email);return json(res,401,{error:'Invalid login'});}clearLoginFailures(req,input.email);return json(res,200,{ok:true,session});}if(req.method==='POST'&&path==='/api/private/logout'){await logout(req);return json(res,200,{ok:true});}if(req.method==='GET'&&path==='/api/private/session'){const session=await requireSession(req);return session?json(res,200,{ok:true,email:session.email,expiresAt:new Date(session.expiresAt).toISOString()}):json(res,401,{error:'Authentication required'});}
 if(req.method==='GET'&&path==='/api/private/gmail/connect'){const owner=await privateOwner(req,res);if(!owner)return;return json(res,200,{url:await beginGmailOAuth(owner.id)});}
 if(req.method==='GET'&&path==='/api/private/gmail/status'){const owner=await privateOwner(req,res);if(!owner)return;return json(res,200,await gmailStatus(owner.id));}
+if(req.method==='POST'&&path==='/api/private/gmail/replies'){const owner=await privateOwner(req,res);if(!owner)return;const input=await bodyJson(req);return json(res,200,{replies:await findGmailReplies(owner.id,input.email,input.maxResults)});}
 if(req.method==='POST'&&path==='/api/private/gmail/disconnect'){const owner=await privateOwner(req,res);if(!owner)return;await disconnectGmail(owner.id);return json(res,200,{ok:true});}
 if(req.method==='GET'&&path==='/api/private/gmail/oauth/callback'){const code=url.searchParams.get('code'),state=url.searchParams.get('state');if(!code||!state)return json(res,400,{error:'Missing OAuth callback parameters'});const connected=await finishGmailOAuth(code,state);res.writeHead(302,{Location:'https://gabenapoleone3-ai.github.io/tableside-growth/private/?gmail=connected'});return res.end();}
 if(path==='/api/private/prospects'){const owner=await privateOwner(req,res);if(!owner)return;if(req.method==='GET')return json(res,200,{prospects:await listProspects(owner.id)});if(req.method==='POST')return json(res,201,{prospect:await createProspect(owner.id,await bodyJson(req))});}
