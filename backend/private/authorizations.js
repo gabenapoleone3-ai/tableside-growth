@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { query } from '../db/pool.js';
+import { pool, query } from '../db/pool.js';
 import { sendAuthorizedGmail } from './gmail-send.js';
 
 const clean=(v,max=12000)=>String(v??'').trim().slice(0,max);
@@ -30,21 +30,43 @@ export async function authorizeDraft(ownerUserId,draftId,input={}){
 }
 
 export async function consumeAuthorization(ownerUserId,authorizationId,input={}){
-  const nowResult=await query('SELECT now() AS now');
-  const r=await query(`SELECT a.*,d.prospect_id,d.recipient,d.subject,d.body FROM action_authorizations a JOIN outreach_drafts d ON d.id=a.target_record_id JOIN prospects p ON p.id=d.prospect_id WHERE a.id=$1 AND a.owner_user_id=$2 AND p.owner_user_id=$2 FOR UPDATE`,[authorizationId,ownerUserId]);
-  if(!r.rowCount)return null;const a=r.rows[0];
-  if(a.status!=='authorized')throw new Error('Authorization is not active');
-  if(new Date(a.expires_at)<=new Date(nowResult.rows[0].now)){await query(`UPDATE action_authorizations SET status='expired' WHERE id=$1`,[authorizationId]);throw new Error('Authorization expired. Review and authorize again.');}
+  if(!pool)throw new Error('Database is not configured');
   const payload={recipient:clean(input.recipient,320),subject:clean(input.subject,500),body:clean(input.body,12000)};
-  if(hashPayload(payload)!==a.payload_hash||hashPayload(payload)!==hashPayload({recipient:a.recipient,subject:a.subject,body:a.body}))throw new Error('Exact message does not match authorization');
   const accessToken=clean(input.gmailAccessToken,6000);
   if(!accessToken)throw new Error('Gmail connection is required');
 
-  // Claim the authorization before the external send. This makes it single-use even if
-  // two clients race. If Gmail fails, a fresh human review/authorization is required.
-  const used=await query(`UPDATE action_authorizations SET status='consumed',consumed_at=now() WHERE id=$1 AND status='authorized' RETURNING id`,[authorizationId]);
-  if(!used.rowCount)throw new Error('Authorization was already consumed');
+  // Claim the authorization atomically inside one real PostgreSQL transaction.
+  // The row lock is held until COMMIT, so simultaneous send attempts cannot both win.
+  const client=await pool.connect();
+  let a;
+  try{
+    await client.query('BEGIN');
+    const r=await client.query(`SELECT a.*,d.prospect_id,d.recipient,d.subject,d.body
+      FROM action_authorizations a
+      JOIN outreach_drafts d ON d.id=a.target_record_id
+      JOIN prospects p ON p.id=d.prospect_id
+      WHERE a.id=$1 AND a.owner_user_id=$2 AND p.owner_user_id=$2
+      FOR UPDATE`,[authorizationId,ownerUserId]);
+    if(!r.rowCount){await client.query('ROLLBACK');return null;}
+    a=r.rows[0];
+    if(a.status!=='authorized')throw new Error('Authorization is not active');
+    if(new Date(a.expires_at)<=new Date()){
+      await client.query(`UPDATE action_authorizations SET status='expired' WHERE id=$1`,[authorizationId]);
+      await client.query(`UPDATE outreach_drafts SET status='pending_review',updated_at=now() WHERE id=$1`,[a.target_record_id]);
+      await client.query('COMMIT');
+      throw new Error('Authorization expired. Review and authorize again.');
+    }
+    if(hashPayload(payload)!==a.payload_hash||hashPayload(payload)!==hashPayload({recipient:a.recipient,subject:a.subject,body:a.body}))throw new Error('Exact message does not match authorization');
+    const used=await client.query(`UPDATE action_authorizations SET status='consumed',consumed_at=now() WHERE id=$1 AND status='authorized' RETURNING id`,[authorizationId]);
+    if(!used.rowCount)throw new Error('Authorization was already consumed');
+    await client.query('COMMIT');
+  }catch(error){
+    try{await client.query('ROLLBACK');}catch{}
+    throw error;
+  }finally{client.release();}
 
+  // External Gmail call happens only after the single-use authorization claim commits.
+  // A failed Gmail call never reactivates that authorization.
   let sent;
   try{
     sent=await sendAuthorizedGmail({accessToken,recipient:a.recipient,subject:a.subject,body:a.body});
