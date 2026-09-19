@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { pool, query } from '../db/pool.js';
 import { sendAuthorizedGmail } from './gmail-send.js';
+import { gmailAccessTokenFor } from './gmail-oauth.js';
 
 const clean=(v,max=12000)=>String(v??'').trim().slice(0,max);
 const hashPayload=({recipient,subject,body})=>crypto.createHash('sha256').update(JSON.stringify({recipient:clean(recipient,320).toLowerCase(),subject:clean(subject,500),body:clean(body,12000)})).digest('hex');
@@ -32,8 +33,7 @@ export async function authorizeDraft(ownerUserId,draftId,input={}){
 export async function consumeAuthorization(ownerUserId,authorizationId,input={}){
   if(!pool)throw new Error('Database is not configured');
   const payload={recipient:clean(input.recipient,320),subject:clean(input.subject,500),body:clean(input.body,12000)};
-  const accessToken=clean(input.gmailAccessToken,6000);
-  if(!accessToken)throw new Error('Gmail connection is required');
+  const accessToken=await gmailAccessTokenFor(ownerUserId);
 
   // Claim the authorization atomically inside one real PostgreSQL transaction.
   // The row lock is held until COMMIT, so simultaneous send attempts cannot both win.
